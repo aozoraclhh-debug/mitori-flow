@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>看取り・臨時対応 判断フロー</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Hiragino Sans','Meiryo','Noto Sans JP',sans-serif; background:#F5F7FA; min-height:100vh; }
+:root { --navy:#1B2A4A; --blue:#2E86AB; --green:#27AE60; --orange:#F18F01; --red:#C0392B; --light:#F5F7FA; --border:#DEE2E6; }
+
+.header { background:var(--navy); padding:16px 20px; color:#fff; position:sticky; top:0; z-index:10; }
+.header-inner { max-width:480px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; }
+.header h1 { font-size:17px; font-weight:bold; }
+.header .sub { font-size:11px; color:#8095B8; margin-top:2px; }
+.log-btn { background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.3); color:#fff; padding:6px 14px; border-radius:6px; font-size:12px; cursor:pointer; }
+
+.container { max-width:480px; margin:0 auto; padding:20px 16px 40px; }
+
+/* Step indicator */
+.steps { display:flex; justify-content:center; gap:8px; margin-bottom:24px; }
+.step-dot { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:bold; color:#aaa; background:#e0e0e0; transition:all 0.3s; }
+.step-dot.active { color:#fff; }
+.step-dot.passed { color:#fff; background:#8095B8; }
+
+/* Cards */
+.card { background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 4px 16px rgba(0,0,0,0.1); margin-bottom:16px; }
+.card-header { padding:16px 20px; color:#fff; }
+.card-header h2 { font-size:16px; font-weight:bold; }
+.card-body { padding:20px; }
+
+/* Start screen */
+.start-screen { text-align:center; padding-top:40px; }
+.start-icon { font-size:64px; margin-bottom:16px; }
+.start-screen h2 { color:var(--navy); margin-bottom:8px; font-size:20px; }
+.start-screen p { color:#888; font-size:14px; margin-bottom:32px; }
+.start-btn { background:var(--navy); color:#fff; border:none; padding:14px 48px; border-radius:12px; font-size:16px; font-weight:bold; cursor:pointer; box-shadow:0 4px 12px rgba(27,42,74,0.3); }
+
+/* Question */
+.question { font-size:14px; font-weight:bold; color:var(--navy); margin-bottom:12px; }
+.detail-item { display:flex; align-items:flex-start; gap:8px; padding:8px 12px; background:var(--light); border-radius:8px; margin-bottom:6px; font-size:13px; color:#333; }
+.detail-icon { flex-shrink:0; }
+.options { display:flex; flex-direction:column; gap:10px; margin-top:20px; }
+.opt-btn { background:#fff; border:2px solid; padding:14px 16px; border-radius:12px; font-size:14px; font-weight:bold; cursor:pointer; text-align:left; transition:all 0.2s; }
+.opt-btn:active { transform:scale(0.98); }
+
+/* Result */
+.result-header { padding:20px; text-align:center; }
+.result-icon { font-size:48px; margin-bottom:8px; }
+.result-title { color:#fff; font-size:20px; font-weight:bold; }
+.result-detail { font-size:14px; color:#333; line-height:1.8; white-space:pre-line; }
+
+.reset-btn { width:100%; margin-top:20px; background:var(--navy); color:#fff; border:none; padding:14px; border-radius:12px; font-size:15px; font-weight:bold; cursor:pointer; }
+.back-btn { width:100%; margin-top:12px; background:transparent; border:1px solid var(--navy); color:var(--navy); padding:10px; border-radius:10px; font-size:13px; cursor:pointer; }
+
+/* Points box */
+.points { margin-top:40px; background:#fff; border-radius:12px; padding:16px; text-align:left; box-shadow:0 1px 4px rgba(0,0,0,0.08); }
+.points h3 { font-size:13px; font-weight:bold; color:var(--navy); margin-bottom:8px; }
+.points p { font-size:12px; color:#555; line-height:1.8; }
+
+/* Log */
+.log-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+.log-header h3 { color:var(--navy); }
+.log-btns { display:flex; gap:8px; }
+.clear-btn { background:#fff; border:1px solid var(--red); color:var(--red); padding:4px 12px; border-radius:6px; font-size:11px; cursor:pointer; }
+.close-btn { background:var(--navy); border:none; color:#fff; padding:4px 12px; border-radius:6px; font-size:11px; cursor:pointer; }
+
+.summary { background:#fff; border-radius:12px; padding:16px; margin-bottom:16px; box-shadow:0 1px 4px rgba(0,0,0,0.08); }
+.summary h4 { font-size:13px; color:var(--navy); font-weight:bold; margin-bottom:8px; }
+.summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.summary-card { background:var(--light); border-radius:8px; padding:10px; text-align:center; }
+.summary-num { font-size:24px; font-weight:bold; color:var(--navy); }
+.summary-label { font-size:11px; color:#888; }
+.breakdown { margin-top:12px; }
+.breakdown-row { display:flex; justify-content:space-between; font-size:12px; padding:4px 0; border-bottom:1px solid #f0f0f0; }
+.breakdown-row span:first-child { color:#555; }
+.breakdown-row span:last-child { font-weight:bold; color:var(--navy); }
+
+.log-item { background:#fff; border-radius:10px; padding:14px; margin-bottom:8px; box-shadow:0 1px 3px rgba(0,0,0,0.06); border-left:3px solid; }
+.log-item-header { display:flex; justify-content:space-between; margin-bottom:4px; }
+.log-item-result { font-size:13px; font-weight:bold; color:var(--navy); }
+.log-item-date { font-size:11px; color:#999; }
+.empty-log { text-align:center; padding:40px; color:#999; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <div>
+      <h1>看取り・臨時対応 判断フロー</h1>
+      <div class="sub">死亡連絡・臨時コール受電時</div>
+    </div>
+    <button class="log-btn" onclick="toggleLog()">📊 使用ログ (<span id="logCount">0</span>)</button>
+  </div>
+</div>
+
+<div class="container" id="app"></div>
+
+<script>
+const FLOW = {
+  q1: {
+    step:1, title:"① 緊急性評価（時間的優先度）", icon:"⏱️",
+    question:"以下に該当しますか？",
+    details:["死亡から長時間経過（目安：2〜3時間以上）","遺族が待機している","施設からの要請が強い"],
+    color:"var(--navy)",
+    options:[
+      {label:"はい（高）→ 即対応", value:"r_q1", color:"var(--red)"},
+      {label:"いいえ（通常）→ 次へ", value:"q2", color:"var(--blue)"}
+    ]
+  },
+  q2: {
+    step:2, title:"② スケジュール調整可能か？", icon:"📅",
+    question:"以下の方法で調整できますか？",
+    details:["時間変更（後ろ倒し・前倒し）","訪問順の変更","ルート最適化","軽症・安定患者の一時後回し"],
+    color:"var(--blue)",
+    options:[
+      {label:"可能 → 調整して対応", value:"r_q2", color:"var(--green)"},
+      {label:"不可 → 次へ", value:"q3", color:"var(--orange)"}
+    ]
+  },
+  q3: {
+    step:3, title:"③ 他リソース活用可能か？", icon:"👥",
+    question:"以下の優先順位で他リソースを活用できますか？",
+    details:["① 同一エリア内の別担当","② 隣接エリアの担当者","③ 他拠点のチーム"],
+    color:"var(--orange)",
+    options:[
+      {label:"可能 → 他エリア連携", value:"r_q3", color:"var(--green)"},
+      {label:"不可 → 上長へ", value:"r_q4", color:"var(--red)"}
+    ]
+  }
+};
+
+const RESULTS = {
+  r_q1: {
+    step:1, icon:"🚑", title:"最優先で訪問調整", text:"即対応",
+    detail:"最優先で訪問調整を行ってください。\n他のスケジュールより優先します。",
+    color:"var(--red)"
+  },
+  r_q2: {
+    step:2, icon:"✅", title:"既存スケジュール調整", text:"スケジュール調整で対応",
+    detail:"時間変更・訪問順変更・ルート最適化で対応してください。",
+    color:"var(--green)"
+  },
+  r_q3: {
+    step:3, icon:"🤝", title:"他エリア連携", text:"他エリア連携で対応",
+    detail:"振替・分担によるチーム対応を行います。\n\n★ 優先度再整理\n・初診（時間拘束が大きい）\n・在がん\n・定期訪問（緊急性が低い）\n\n看取り対応するエリアのスケジュール調整\n（他エリアでフォローできるか含め）\nメンバーで調整・依頼してください。",
+    color:"var(--green)"
+  },
+  r_q4: {
+    step:4, icon:"📢", title:"上長へエスカレーション", text:"上長へエスカレーション",
+    detail:"以下の場合は速やかにエスカレーションしてください。\n・医師確保の見込みが立たない\n\n最終判断・指示に従ってください。",
+    color:"var(--red)"
+  }
+};
+
+let state = { screen:"start", current:"q1", history:[], showLog:false };
+let logs = JSON.parse(localStorage.getItem("mitori-logs")||"[]");
+
+function updateLogCount(){ document.getElementById("logCount").textContent=logs.length; }
+updateLogCount();
+
+function saveLog(resultText){
+  const log = { id:Date.now(), date:new Date().toLocaleString("ja-JP"), result:resultText };
+  logs.unshift(log);
+  if(logs.length>100) logs=logs.slice(0,100);
+  localStorage.setItem("mitori-logs",JSON.stringify(logs));
+  updateLogCount();
+}
+
+function toggleLog(){
+  state.showLog=!state.showLog;
+  render();
+}
+
+function startFlow(){
+  state = { screen:"flow", current:"q1", history:[], showLog:false };
+  render();
+}
+
+function selectOption(value){
+  state.history.push(state.current);
+  if(RESULTS[value]){
+    state.screen="result";
+    state.current=value;
+    saveLog(RESULTS[value].text);
+  } else {
+    state.current=value;
+  }
+  render();
+}
+
+function goBack(){
+  if(state.history.length>0){
+    state.current=state.history.pop();
+    state.screen="flow";
+    render();
+  }
+}
+
+function resetFlow(){
+  state = { screen:"start", current:"q1", history:[], showLog:false };
+  render();
+}
+
+function clearLogs(){
+  logs=[];
+  localStorage.removeItem("mitori-logs");
+  updateLogCount();
+  render();
+}
+
+function getStepColor(stepNum, currentStep, color){
+  if(currentStep > stepNum) return "#8095B8";
+  if(currentStep === stepNum) return color || "var(--navy)";
+  return "#e0e0e0";
+}
+
+function renderSteps(currentStep, color){
+  return `<div class="steps">${[1,2,3,4].map(n=>{
+    const bg = currentStep > n ? "#8095B8" : currentStep === n ? (color||"var(--navy)") : "#e0e0e0";
+    const c = currentStep >= n ? "#fff" : "#aaa";
+    return `<div class="step-dot" style="background:${bg};color:${c}">${n}</div>`;
+  }).join("")}</div>`;
+}
+
+function render(){
+  const app = document.getElementById("app");
+
+  if(state.showLog){
+    const thisMonth = logs.filter(l=>{
+      const d=new Date(l.date), n=new Date();
+      return d.getMonth()===n.getMonth() && d.getFullYear()===n.getFullYear();
+    }).length;
+    const counts = {};
+    ["即対応","スケジュール調整で対応","他エリア連携で対応","上長へエスカレーション"].forEach(r=>{
+      counts[r]=logs.filter(l=>l.result===r).length;
+    });
+
+    app.innerHTML = `
+      <div class="log-header">
+        <h3>使用ログ</h3>
+        <div class="log-btns">
+          ${logs.length>0?`<button class="clear-btn" onclick="clearLogs()">クリア</button>`:""}
+          <button class="close-btn" onclick="toggleLog()">閉じる</button>
+        </div>
+      </div>
+      <div class="summary">
+        <h4>サマリー</h4>
+        <div class="summary-grid">
+          <div class="summary-card"><div class="summary-num">${logs.length}</div><div class="summary-label">総使用回数</div></div>
+          <div class="summary-card"><div class="summary-num" style="color:var(--blue)">${thisMonth}</div><div class="summary-label">今月</div></div>
+        </div>
+        <div class="breakdown">
+          ${Object.entries(counts).map(([k,v])=>`<div class="breakdown-row"><span>${k}</span><span>${v}件</span></div>`).join("")}
+        </div>
+      </div>
+      ${logs.length===0?`<div class="empty-log">まだ使用ログがありません</div>`:
+        logs.map(l=>{
+          const bc = l.result==="即対応"?"var(--red)":l.result.includes("スケジュール")?"var(--green)":l.result.includes("他エリア")?"var(--orange)":"var(--red)";
+          return `<div class="log-item" style="border-left-color:${bc}">
+            <div class="log-item-header"><span class="log-item-result">${l.result}</span><span class="log-item-date">${l.date}</span></div>
+          </div>`;
+        }).join("")
+      }`;
+    return;
+  }
+
+  if(state.screen==="start"){
+    app.innerHTML = `
+      <div class="start-screen">
+        <div class="start-icon">📞</div>
+        <h2>死亡連絡・臨時コールを<br>受電しましたか？</h2>
+        <p>このフローに沿って判断を進めてください。</p>
+        <button class="start-btn" onclick="startFlow()">判断を開始する</button>
+        <div class="points">
+          <h3>【ポイント】</h3>
+          <p>⏱ 判断の迷いを減らし、即決・即行動できる体制を目指します。<br>
+          🏥 臨時対応は、日頃から施設温度感の把握・リスク頻度把握が重要です。<br>
+          👥 チームでの情報共有とフォロー体制の構築が成功の鍵です。</p>
+        </div>
+      </div>`;
+    return;
+  }
+
+  if(state.screen==="result"){
+    const r = RESULTS[state.current];
+    app.innerHTML = `
+      ${renderSteps(r.step, r.color)}
+      <div class="card">
+        <div class="result-header" style="background:${r.color}">
+          <div class="result-icon">${r.icon}</div>
+          <div class="result-title">${r.text}</div>
+        </div>
+        <div class="card-body">
+          <div class="result-detail">${r.detail}</div>
+        </div>
+      </div>
+      <button class="reset-btn" onclick="resetFlow()">最初に戻る</button>`;
+    return;
+  }
+
+  const q = FLOW[state.current];
+  app.innerHTML = `
+    ${renderSteps(q.step, q.color)}
+    <div class="card">
+      <div class="card-header" style="background:${q.color}">
+        <h2>${q.icon} ${q.title}</h2>
+      </div>
+      <div class="card-body">
+        ${q.question?`<div class="question">${q.question}</div>`:""}
+        ${q.details?q.details.map(d=>`<div class="detail-item"><span class="detail-icon" style="color:${q.color}">☐</span>${d}</div>`).join(""):""}
+        <div class="options">
+          ${q.options.map(o=>`<button class="opt-btn" style="border-color:${o.color};color:${o.color}" onclick="selectOption('${o.value}')"
+            onmousedown="this.style.background='${o.color}';this.style.color='#fff'"
+            onmouseup="this.style.background='#fff';this.style.color='${o.color}'"
+            ontouchstart="this.style.background='${o.color}';this.style.color='#fff'"
+            ontouchend="this.style.background='#fff';this.style.color='${o.color}'"
+          >${o.label}</button>`).join("")}
+        </div>
+      </div>
+    </div>
+    ${state.history.length>0?`<button class="back-btn" onclick="goBack()">← 前のステップに戻る</button>`:""}`;
+}
+
+render();
+</script>
+</body>
+</html>
